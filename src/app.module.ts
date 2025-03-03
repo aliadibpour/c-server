@@ -3,24 +3,26 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TodoModule } from './todo/todo.module';
 import { UserModule } from './user/user.module';
-import { TypeOrmModule } from '@nestjs/typeorm';
+//import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user/entities/user.entity';
 import { Document } from './user/entities/document.entity';
+import { LiveMatchResultModule } from './live-match-result/live-match-result.module';
 
 @Module({
-  imports: [TodoModule, UserModule, TypeOrmModule.forRoot({
-    type: 'postgres',
-    url: "postgresql://neondb_owner:JhUaMFj71WoE@ep-long-wind-a5yc91se-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require",
-    host: 'localhost',
-    port:4000,
-    name: 'postgres',
-    password: 'root',
-    entities: [ 
-        User,
-        Document
-    ],
-    synchronize: true,
-  })],
+   imports: [//TodoModule, UserModule ,TypeOrmModule.forRoot({
+  //   type: 'postgres',
+  //   url: "postgresql://neondb_owner:JhUaMFj71WoE@ep-long-wind-a5yc91se-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require",
+  //   host: 'localhost',
+  //   port:4000,
+  //   name: 'postgres',
+  //   password: 'root',
+  //   entities: [ 
+  //       User,
+  //       Document
+  //   ],
+  //   synchronize: true,
+  //})
+   LiveMatchResultModule],
   controllers: [AppController],
   providers: [AppService],
 })
