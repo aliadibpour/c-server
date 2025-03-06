@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket Example</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h2>Send Index to Server</h2>
+    <input id="indexInput" type="number" placeholder="Enter index (0-4)" />
+    <button onclick="sendIndex()">Send</button>
+    <h3>Received Data:</h3>
+    <p id="response"></p>
+
+    <script>
+        const socket = io('http://localhost:3000');
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+
+            // ارسال مقدار index هنگام اتصال
+            //const index = prompt('Enter an index (0-4):');
+            socket.emit('send_index', { index: 3 });
+        });
+
+        socket.on('receive_data', (data) => {
+            document.getElementById('response').textContent = `Index: ${data.index}, Value: ${data.value}`
+            console.log(data);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        });
+    </script>
+</body>
+</html>
