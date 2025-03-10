@@ -21,7 +21,7 @@
 
             // ارسال مقدار index هنگام اتصال
             //const index = prompt('Enter an index (0-4):');
-            socket.emit('send_index', { index: 3 });
+            socket.emit('send_index', 3);
         });
 
         socket.on('receive_data', (data) => {
