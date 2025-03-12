@@ -3,7 +3,7 @@ import puppeteer from 'puppeteer-core';
 
 @Injectable()
 export class LiveMatchResultService {
-  async liveResult() {
+  async liveMatch() {
     const browser = await puppeteer.launch({
       executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
       headless: false
@@ -39,14 +39,14 @@ export class LiveMatchResultService {
     console.log('page load');
     const getDate = new Date();
     const getDate2 = new Date(getDate);
-    const formatDate = getDate2.toISOString().split("T")[0];
+    const formatDate = getDate2.toISOString().split("T")[0];//for giving date in this format:2025-01-30
     if (formatDate == date) return await page
     else {
         return await evaluate(page)
     }
   };
 
-  private evaluatePage = async (page, todayPage) => {
+  evaluatePage = async (page, todayPage) => {
     try {
       return await page.evaluate(async() => {
         const matches = Array.from(document.querySelectorAll('.Sections_container__03lu8'))

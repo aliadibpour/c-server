@@ -9,13 +9,25 @@ import { LiveMatchResultService } from './live-match-result.service';
 
 @WebSocketGateway({ cors: true })
 export class LiveMatchGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private liveData: any; 
+  private liveMatch: any; 
 
-  constructor(private readonly liveMatchResult: LiveMatchResultService) {}
+  constructor(private readonly liveMatchResultService: LiveMatchResultService) {}
 
   async onModuleInit() {
-    this.liveData = await this.liveMatchResult.liveResult();
-    console.log('Live Data Initialized:', this.liveData);
+    this.liveMatch = await this.liveMatchResultService.liveMatch();
+    console.log('Live Data Initialized:', this.liveMatch);
+
+    let page = this.liveMatch[2];
+    this.liveMatch[2] = await this.liveMatchResultService.evaluatePage(this.liveMatch[2], true);
+    setInterval(async() => {
+      await page.reload()
+      await new Promise((resolve) => setTimeout(resolve, 8000));
+      try {
+        this.liveMatch[2] = await this.liveMatchResultService.evaluatePage(page, true);
+      } catch (error) {
+        console.log(error);
+      }
+}, 40000); 
   }
 
   handleConnection(client: Socket) {
@@ -24,11 +36,10 @@ export class LiveMatchGateway implements OnGatewayConnection, OnGatewayDisconnec
     client.on('live-match', (day, callback) => {
       console.log(day);
       try {
-        callback({matchList: this.liveData[+day]})
+        callback({matchList: this.liveMatch[+day]})
       } catch (error) {
         console.log(error)
       }
-      //client.emit('live-match-list', { matchList: this.liveData[3] });
     });
   }
 
