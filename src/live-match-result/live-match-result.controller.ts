@@ -10,7 +10,7 @@ export class LiveMatchResultController {
   ) {}
   @Get()
   async findAll() {
-    const liveData = await this.liveMatchResultService.liveResult();
+    const liveData = await this.liveMatchResultService.liveMatch();
     return liveData;
   }
 }
