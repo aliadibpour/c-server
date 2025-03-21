@@ -1,28 +1,27 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TodoModule } from './todo/todo.module';
-import { UserModule } from './user/user.module';
-//import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from './user/entities/user.entity';
-import { Document } from './user/entities/document.entity';
 import { LiveMatchResultModule } from './live-match-result/live-match-result.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './user/entities/user.entity';
+import { Team } from './entites/teams';
+import { FavoriteTeam } from './entites/favorite-team';
 
 @Module({
-   imports: [//TodoModule, UserModule ,TypeOrmModule.forRoot({
-  //   type: 'postgres',
-  //   url: "postgresql://neondb_owner:JhUaMFj71WoE@ep-long-wind-a5yc91se-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require",
-  //   host: 'localhost',
-  //   port:4000,
-  //   name: 'postgres',
-  //   password: 'root',
-  //   entities: [ 
-  //       User,
-  //       Document
-  //   ],
-  //   synchronize: true,
-  //})
-   LiveMatchResultModule],
+   imports: [
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: 'localhost',
+      port: 5432,
+      username: 'postgres',
+      password: 'Aliadibpc0',
+      entities: [User, Team, FavoriteTeam],
+      database: 'corner', 
+      autoLoadEntities: true, // به‌طور خودکار همه entityها را بارگذاری می‌کند
+      synchronize: true, // در محیط توسعه جداول را خودکار می‌سازد
+    }),
+   LiveMatchResultModule
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

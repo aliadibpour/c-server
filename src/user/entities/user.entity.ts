@@ -1,5 +1,4 @@
 import { BaseEntity, Column, CreateDateColumn, Entity, OneToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Document } from "./document.entity";
 
 @Entity('user')
 export class User {
@@ -12,10 +11,13 @@ export class User {
     name: string;
 
     @Column()
-    title: string;
-    
+    password: string;
+
     @Column()
-    description: string;
+    favoriteTeams: string;
+
+    @Column({nullable: true})
+    telegram: number;
 
     @CreateDateColumn()
     date: Date
