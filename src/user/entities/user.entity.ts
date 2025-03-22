@@ -16,6 +16,9 @@ export class User {
     @Column()
     favoriteTeams: string;
 
+    @Column()
+    phoneNumber: number;
+
     @Column({nullable: true})
     telegram: number;
 
