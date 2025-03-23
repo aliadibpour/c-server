@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user/entities/user.entity';
 import { Team } from './entites/teams';
 import { FavoriteTeam } from './entites/favorite-team';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
    imports: [
@@ -20,7 +21,8 @@ import { FavoriteTeam } from './entites/favorite-team';
       autoLoadEntities: true, // به‌طور خودکار همه entityها را بارگذاری می‌کند
       synchronize: true, // در محیط توسعه جداول را خودکار می‌سازد
     }),
-   LiveMatchResultModule
+   //LiveMatchResultModule,
+   AuthModule
   ],
   controllers: [AppController],
   providers: [AppService],
