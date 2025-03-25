@@ -1,88 +1,40 @@
 import { Injectable } from '@nestjs/common';
-import { StringSession } from 'telegram/sessions';
-import { Api, TelegramClient } from 'telegram';
+import { getTdjson } from 'prebuilt-tdlib';
+import * as tdl from "tdl";
 
+tdl.configure({ tdjson: getTdjson() });
 @Injectable()
 export class AuthService {
-  private client: TelegramClient;
-  private session: StringSession;
-  private phoneNumber: string;
+  private client = tdl.createClient({
+    apiId: 19661737,
+    apiHash: "28b0dd4e86b027fd9a2905d6c343c6bb",
+  });
 
-  constructor() {
-    this.session = new StringSession(''); // اگر قبلاً لاگین شده باشد، مقدار سشن ذخیره می‌شود
+  private resolveAuthCode: ((code: string) => void) | null = null;
 
-    this.client = new TelegramClient(
-      this.session,
-      19661737,
-      '28b0dd4e86b027fd9a2905d6c343c6bb',
-      {
-        connectionRetries: 5,
+  async loginUser(phoneNumber: string) {
+    return this.client.login(() => ({
+      getPhoneNumber: () => {
+        console.log(`📲 ارسال شماره: ${phoneNumber}`);
+        return Promise.resolve(phoneNumber);
       },
-    );
+      getAuthCode: () => {
+        return new Promise<string>((resolve) => {
+          console.log("⏳ منتظر دریافت کد تایید...");
+          this.resolveAuthCode = resolve;
+        });
+      },
+    }));
   }
 
-  async startClient() {
-    if (!this.client.connected) {
-      await this.client.connect();
+  async verifyCode(code: string) {
+    if (this.resolveAuthCode) {
+      console.log(`🔑 کد تایید دریافتی: ${code}`);
+      this.resolveAuthCode(code);
+      this.resolveAuthCode = null; // پاک کردن مقدار برای جلوگیری از مشکلات احتمالی
+      return { message: "✅ کد تایید ارسال شد!" };
+    } else {
+      throw new Error("⚠️ هنوز نیازی به وارد کردن کد تایید نیست.");
     }
-  }
-
-  async loginUser(phoneNumber: string): Promise<string> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        await this.startClient();
-        this.phoneNumber = phoneNumber;
-
-        await this.client.invoke(new Api.auth.SendCode({
-          phoneNumber: phoneNumber,
-          settings: new Api.CodeSettings({
-            allowFlashcall: false,
-            currentNumber: true,
-            allowAppHash: true
-          })
-        }));
-
-        resolve('کد تأیید ارسال شد!');
-      } catch (error) {
-        console.error('❌ Error during login:', error);
-        reject('مشکلی در ورود رخ داد.');
-      }
-    });
-  }
-
-  async verifyCode(code: string): Promise<string> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        await this.startClient();
-
-        if (!this.phoneNumber) {
-          return reject('ابتدا باید شماره تلفن را ارسال کنید.');
-        }
-
-        const sentCode = await this.client.invoke(new Api.auth.SendCode({
-          phoneNumber: this.phoneNumber,
-          settings: new Api.CodeSettings({
-            allowFlashcall: false,
-            currentNumber: true,
-            allowAppHash: true
-          })
-        }));
-
-        if ('phoneCodeHash' in sentCode) {
-          await this.client.invoke(new Api.auth.SignIn({
-            phoneNumber: this.phoneNumber,
-            phoneCode: code,
-            phoneCodeHash: sentCode.phoneCodeHash
-          }));
-
-          resolve('✅ ورود موفقیت‌آمیز!');
-        } else {
-          reject('خطا در دریافت کد تأیید');
-        }
-      } catch (error) {
-        console.error('❌ Error during verification:', error);
-        reject('کد وارد شده صحیح نیست.');
-      }
-    });
   }
 }
