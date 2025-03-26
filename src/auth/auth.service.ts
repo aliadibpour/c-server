@@ -1,40 +1,63 @@
 import { Injectable } from '@nestjs/common';
 import { getTdjson } from 'prebuilt-tdlib';
 import * as tdl from "tdl";
+import * as path from "path";
+import * as fs from "fs";
 
 tdl.configure({ tdjson: getTdjson() });
+
 @Injectable()
 export class AuthService {
-  private client = tdl.createClient({
-    apiId: 19661737,
-    apiHash: "28b0dd4e86b027fd9a2905d6c343c6bb",
-  });
+  private authResolvers: Map<string, (code: string) => void> = new Map();
+  private clients: Map<string, any> = new Map();
 
-  private resolveAuthCode: ((code: string) => void) | null = null;
+  private getClient(phoneNumber: string) {
+    if (this.clients.has(phoneNumber)) {
+      return this.clients.get(phoneNumber);
+    }
+
+    const sessionPath = path.resolve("sessions", phoneNumber);
+    if (!fs.existsSync(sessionPath)) {
+      fs.mkdirSync(sessionPath, { recursive: true });
+    }
+    console.log("📂 Session Path:", sessionPath);
+
+    const client = tdl.createClient({
+      apiId: 19661737,
+      apiHash: "28b0dd4e86b027fd9a2905d6c343c6bb",
+      databaseDirectory: sessionPath,
+      filesDirectory: sessionPath,
+    });
+
+    this.clients.set(phoneNumber, client);
+    return client;
+  }
 
   async loginUser(phoneNumber: string) {
-    return this.client.login(() => ({
+    const client = this.getClient(phoneNumber);
+
+    return client.login(() => ({
       getPhoneNumber: () => {
         console.log(`📲 ارسال شماره: ${phoneNumber}`);
         return Promise.resolve(phoneNumber);
       },
       getAuthCode: () => {
         return new Promise<string>((resolve) => {
-          console.log("⏳ منتظر دریافت کد تایید...");
-          this.resolveAuthCode = resolve;
+          console.log(`⏳ منتظر دریافت کد تایید برای ${phoneNumber}...`);
+          this.authResolvers.set(phoneNumber, resolve);
         });
       },
     }));
   }
 
-  async verifyCode(code: string) {
-    if (this.resolveAuthCode) {
-      console.log(`🔑 کد تایید دریافتی: ${code}`);
-      this.resolveAuthCode(code);
-      this.resolveAuthCode = null; // پاک کردن مقدار برای جلوگیری از مشکلات احتمالی
-      return { message: "✅ کد تایید ارسال شد!" };
+  async verifyCode(phoneNumber: string, code: string) {
+    if (this.authResolvers.has(phoneNumber)) {
+      console.log(`🔑 کد تایید دریافتی برای ${phoneNumber}: ${code}`);
+      this.authResolvers.get(phoneNumber)!(code);
+      this.authResolvers.delete(phoneNumber);
+      return { message: "✅ کد تایید ارسال شد و کاربر لاگین شد!" };
     } else {
-      throw new Error("⚠️ هنوز نیازی به وارد کردن کد تایید نیست.");
+      throw new Error("⚠️ هنوز نیازی به وارد کردن کد تایید نیست یا کد نادرست است.");
     }
   }
 }
