@@ -20,7 +20,6 @@ export class AuthService {
     if (!fs.existsSync(sessionPath)) {
       fs.mkdirSync(sessionPath, { recursive: true });
     }
-    console.log("📂 Session Path:", sessionPath);
 
     const client = tdl.createClient({
       apiId: 19661737,
@@ -38,12 +37,12 @@ export class AuthService {
 
     return client.login(() => ({
       getPhoneNumber: () => {
-        console.log(`📲 ارسال شماره: ${phoneNumber}`);
+        console.log(`send phoneNumber ${phoneNumber}`);
         return Promise.resolve(phoneNumber);
       },
       getAuthCode: () => {
         return new Promise<string>((resolve) => {
-          console.log(`⏳ منتظر دریافت کد تایید برای ${phoneNumber}...`);
+          console.log(`wwait for sending verify code${phoneNumber}...`);
           this.authResolvers.set(phoneNumber, resolve);
         });
       },
@@ -52,12 +51,12 @@ export class AuthService {
 
   async verifyCode(phoneNumber: string, code: string) {
     if (this.authResolvers.has(phoneNumber)) {
-      console.log(`🔑 کد تایید دریافتی برای ${phoneNumber}: ${code}`);
+      console.log(`resolve code for:${phoneNumber}: ${code}`);
       this.authResolvers.get(phoneNumber)!(code);
       this.authResolvers.delete(phoneNumber);
-      return { message: "✅ کد تایید ارسال شد و کاربر لاگین شد!" };
+      return { message: "login succes" };
     } else {
-      throw new Error("⚠️ هنوز نیازی به وارد کردن کد تایید نیست یا کد نادرست است.");
+      throw new Error("still no need to send code or the code is incorrect!");
     }
   }
 }
