@@ -42,7 +42,7 @@ export class AuthService {
       },
       getAuthCode: () => {
         return new Promise<string>((resolve) => {
-          console.log(`wwait for sending verify code${phoneNumber}...`);
+          console.log(`wait for sending verify code${phoneNumber}...`);
           this.authResolvers.set(phoneNumber, resolve);
         });
       },
@@ -54,7 +54,7 @@ export class AuthService {
       console.log(`resolve code for:${phoneNumber}: ${code}`);
       this.authResolvers.get(phoneNumber)!(code);
       this.authResolvers.delete(phoneNumber);
-      return { message: "login succes" };
+      return { message: "login success" };
     } else {
       throw new Error("still no need to send code or the code is incorrect!");
     }

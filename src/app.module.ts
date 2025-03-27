@@ -3,10 +3,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LiveMatchResultModule } from './live-match-result/live-match-result.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from './user/entities/user.entity';
-import { Team } from './entites/teams';
-import { FavoriteTeam } from './entites/favorite-team';
 import { AuthModule } from './auth/auth.module';
+import { UserEntity } from './user/entities/userEntity';
 
 @Module({
    imports: [
@@ -16,7 +14,7 @@ import { AuthModule } from './auth/auth.module';
       port: 5432,
       username: 'postgres',
       password: 'Aliadibpc0',
-      entities: [User, Team, FavoriteTeam],
+      entities: [UserEntity],
       database: 'corner', 
       autoLoadEntities: true, // به‌طور خودکار همه entityها را بارگذاری می‌کند
       synchronize: true, // در محیط توسعه جداول را خودکار می‌سازد
