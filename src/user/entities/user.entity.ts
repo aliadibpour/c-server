@@ -11,6 +11,9 @@ export class User {
     name: string;
 
     @Column()
+    favoriteTeams: string;
+
+    @Column()
     phoneNumber: number;
 
     @Column({nullable: true})
