@@ -6,5 +6,5 @@ export class UserEntity {
     id: number
 
     @Column({unique: true})
-    phoneNumber: number
+    phoneNumber: string
 }

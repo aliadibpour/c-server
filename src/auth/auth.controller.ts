@@ -7,14 +7,11 @@ export class AuthController {
 
   @Post('login')
   async login(@Body('phoneNumber') phoneNumber: string) {
-    console.log(`request code for: ${phoneNumber}`);
     return this.authService.loginUser(phoneNumber);
   }
 
   @Post('verify')
-  async verify(@Body() body: { phoneNumber: string; code: string }) {
-    console.log(`request code for:${body.phoneNumber} with code:${body.code}`);
-    
+  async verify(@Body() body: { phoneNumber: string; code: string }) {    
     if (!body.phoneNumber || !body.code) {
       console.error("bad request");
       throw new Error("bad request");

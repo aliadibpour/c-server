@@ -6,7 +6,7 @@ import { UserEntity } from './entities/userEntity';
 export class UserService {
   constructor(private readonly userRepository: UserRepository) {}
 
-  async registerUser(phoneNumber: number): Promise<UserEntity> {
+  async registerUser(phoneNumber: string): Promise<UserEntity> {
     const existingUser = await this.userRepository.findUserByPhone(phoneNumber);
     if (existingUser) return existingUser;
 

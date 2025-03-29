@@ -10,12 +10,12 @@ export class UserRepository {
     private readonly userRepo: Repository<UserEntity>,
   ) {}
 
-  async createUser(phoneNumber: number): Promise<UserEntity> {
+  async createUser(phoneNumber: string): Promise<UserEntity> {
     const user = this.userRepo.create({ phoneNumber });
     return this.userRepo.save(user);
   }
 
-  async findUserByPhone(phoneNumber: number): Promise<UserEntity | null> {
+  async findUserByPhone(phoneNumber: string): Promise<UserEntity | null> {
     return this.userRepo.findOne({ where: { phoneNumber } });
   }
 }
