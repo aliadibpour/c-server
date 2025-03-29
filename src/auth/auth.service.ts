@@ -68,7 +68,7 @@ export class AuthService {
       },
       getAuthCode: () => {
         return new Promise<string>((resolve) => {
-          console.log(`⏳ Waiting for verification code for ${phoneNumber}...`);
+          console.log(`Waiting for verification code for ${phoneNumber}...`);
           this.authResolvers.set(phoneNumber, resolve);
         });
       },
@@ -77,7 +77,7 @@ export class AuthService {
       console.log(`✅ Login completed for ${phoneNumber}`);
     })
     .catch((err) => {
-      console.error(`❌ Login failed for ${phoneNumber}:`, err);
+      console.error(`Login failed for ${phoneNumber}:`, err);
       this.cleanupSession(phoneNumber);
     });
 
@@ -102,12 +102,12 @@ export class AuthService {
 
         // Check if the client is authorized after the delay
         if (!client.authorized) {
-          console.error(`❌ Invalid verification code for ${phoneNumber}, deleting session.`);
+          console.error(`Invalid verification code for ${phoneNumber}, deleting session.`);
           this.cleanupSession(phoneNumber);
           return reject({ error: 401, message: 'Invalid verification code. Please try again.' });
         }
 
-        console.log(`✅ Login completed for ${phoneNumber}`);
+        console.log(`Login completed for ${phoneNumber}`);
         this.authResolvers.delete(phoneNumber);
 
         // Reset attempts on successful login
@@ -117,6 +117,13 @@ export class AuthService {
         resolve({ message: 'Login successful!', user: this.userService.registerUser(phoneNumber) });
       }, 3000); // Delay for checking login completion
     });
+  }
+
+  //to allow delete session if user not send code and close the verifiction window in client
+  cancelSession(phoneNumber: string) {
+    console.warn(`🚨 Client canceled login for ${phoneNumber}. Deleting session.`);
+    this.cleanupSession(phoneNumber);
+    return { message: 'Session canceled successfully.' };
   }
 
   private cleanupSession(phoneNumber: string) {

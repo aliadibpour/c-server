@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -7,20 +7,34 @@ export class AuthController {
 
   @Post('login')
   async login(@Body('phoneNumber') phoneNumber: string) {
+    if (!phoneNumber) {
+      throw new BadRequestException('Phone number is required.');
+    }
     return this.authService.loginUser(phoneNumber);
   }
 
   @Post('verify')
-  async verify(@Body() body: { phoneNumber: string; code: string }) {    
-    if (!body.phoneNumber || !body.code) {
-      console.error("bad request");
-      throw new Error("bad request");
+  async verify(@Body() body: { phoneNumber: string; code: string }) {
+    const { phoneNumber, code } = body;
+
+    if (!phoneNumber || !code) {
+      throw new BadRequestException('Phone number and code are required.');
     }
 
-    return this.authService.verifyCode(body.phoneNumber, body.code);
+    try {
+      return await this.authService.verifyCode(phoneNumber, code);
+    } catch (error) {
+      console.error(`Verification failed for ${phoneNumber}:`, error);
+      throw new BadRequestException(error.message || 'Verification failed.');
+    }
+  }
+
+  @Post('cancel-session')
+  async cancelSession(@Body('phoneNumber') phoneNumber: string) {
+    if (!phoneNumber) {
+      throw new BadRequestException('Phone number is required.');
+    }
+
+    return this.authService.cancelSession(phoneNumber);
   }
 }
-//09132541719 mansor
-//09138493082 hossein
-//09134741096 heydar
-//09137230227 ali
