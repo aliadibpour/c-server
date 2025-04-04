@@ -5,6 +5,7 @@ import { LiveMatchResultModule } from './live-match-result/live-match-result.mod
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UserEntity } from './user/entities/userEntity';
+import { TelegramModule } from './telegram/telegram.module';
 
 @Module({
    imports: [
@@ -19,8 +20,9 @@ import { UserEntity } from './user/entities/userEntity';
       autoLoadEntities: true, // به‌طور خودکار همه entityها را بارگذاری می‌کند
       synchronize: true, // در محیط توسعه جداول را خودکار می‌سازد
     }),
-   //LiveMatchResultModule,
-   AuthModule
+   LiveMatchResultModule,
+   AuthModule,
+   TelegramModule
   ],
   controllers: [AppController],
   providers: [AppService],

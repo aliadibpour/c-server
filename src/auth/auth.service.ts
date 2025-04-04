@@ -63,7 +63,7 @@ export class AuthService {
     const client = await this.getClient(phoneNumber);
     client.login(() => ({
       getPhoneNumber: () => {
-        console.log(`📲 Sending phone number: ${phoneNumber}`);
+        console.log(`Sending phone number: ${phoneNumber}`);
         return Promise.resolve(phoneNumber);
       },
       getAuthCode: () => {
@@ -74,7 +74,7 @@ export class AuthService {
       },
     }))
     .then(() => {
-      console.log(`✅ Login completed for ${phoneNumber}`);
+      console.log(`Login completed for ${phoneNumber}`);
     })
     .catch((err) => {
       console.error(`Login failed for ${phoneNumber}:`, err);
@@ -121,7 +121,7 @@ export class AuthService {
 
   //to allow delete session if user not send code and close the verifiction window in client
   cancelSession(phoneNumber: string) {
-    console.warn(`🚨 Client canceled login for ${phoneNumber}. Deleting session.`);
+    console.warn(`Client canceled login for ${phoneNumber}. Deleting session.`);
     this.cleanupSession(phoneNumber);
     return { message: 'Session canceled successfully.' };
   }
@@ -130,7 +130,7 @@ export class AuthService {
     const sessionPath = this.getSessionPath(phoneNumber);
     if (fs.existsSync(sessionPath)) {
       fs.rmSync(sessionPath, { recursive: true, force: true });
-      console.log(`🗑️ Removed incomplete session for ${phoneNumber}`);
+      console.log(`Removed incomplete session for ${phoneNumber}`);
     }
     this.clients.delete(phoneNumber);
   }
