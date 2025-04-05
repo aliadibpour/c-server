@@ -20,7 +20,7 @@ import { TelegramModule } from './telegram/telegram.module';
       autoLoadEntities: true, // به‌طور خودکار همه entityها را بارگذاری می‌کند
       synchronize: true, // در محیط توسعه جداول را خودکار می‌سازد
     }),
-   LiveMatchResultModule,
+   //LiveMatchResultModule,
    AuthModule,
    TelegramModule
   ],
