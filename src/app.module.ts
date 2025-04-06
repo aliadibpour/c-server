@@ -3,9 +3,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LiveMatchResultModule } from './live-match-result/live-match-result.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './login/login.module';
+import { LoginModule } from './login/login.module';
 import { UserEntity } from './user/entities/userEntity';
 import { TelegramModule } from './telegram/telegram.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
    imports: [
@@ -18,11 +19,12 @@ import { TelegramModule } from './telegram/telegram.module';
       entities: [UserEntity],
       database: 'corner', 
       autoLoadEntities: true, // به‌طور خودکار همه entityها را بارگذاری می‌کند
-      synchronize: true, // در محیط توسعه جداول را خودکار می‌سازد
+      synchronize: true, // create auto tables in developing mode
     }),
+   ConfigModule.forRoot({ isGlobal: true }),
    //LiveMatchResultModule,
-   AuthModule,
-   TelegramModule
+   LoginModule,
+   //TelegramModule,
   ],
   controllers: [AppController],
   providers: [AppService],

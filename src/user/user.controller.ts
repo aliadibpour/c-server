@@ -1,35 +1,26 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ParseIntPipe, ValidationPipe } from '@nestjs/common';
-import { UserService } from './user.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { Controller, Post, Body } from '@nestjs/common';
+import { JwtService } from 'src/common/jwt/jwt.service';
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly jwtService: JwtService) {}
 
-  // @Post()
-  // @UsePipes(new ValidationPipe)
-  // create(@Body() createUserDto: CreateUserDto) {
-  //   return this.userService.create(createUserDto);
-  // }
+  @Post('generate-token')
+  generateJwt(@Body() body: {
+    phone: string; //if is null its the guest user
+    team1: string;
+    team2: string | null;
+    team3: string | null;
+  }) {
+    const payload = {
+      phone: body.phone,
+      team1: body.team1,
+      team2: body.team2,
+      team3: body.team3,
+      registered: !!body.phone,
+    };
 
-  // @Get()
-  // findAll() {
-  //   return this.userService.findAll();
-  // }
-
-  // @Get(':id')
-  // findOne(@Param('id', ParseIntPipe) id: number) {
-  //   return this.userService.findOne(id);
-  // }
-
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-  //   return this.userService.update(+id, updateUserDto);
-  // }
-
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.userService.remove(+id);
-  // }
+    const token = this.jwtService.generateToken(payload);
+    return { token };
+  }
 }
