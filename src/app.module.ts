@@ -3,7 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LiveMatchResultModule } from './live-match-result/live-match-result.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './auth/auth.module';
+import { AuthModule } from './login/login.module';
 import { UserEntity } from './user/entities/userEntity';
 import { TelegramModule } from './telegram/telegram.module';
 

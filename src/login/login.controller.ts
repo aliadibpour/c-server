@@ -1,9 +1,9 @@
 import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { LoginService } from './login.service';
 
 @Controller('auth')
-export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+export class LoginController {
+  constructor(private readonly authService: LoginService) {}
 
   @Post('login')
   async login(@Body('phoneNumber') phoneNumber: string) {

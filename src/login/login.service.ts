@@ -8,7 +8,7 @@ import { UserService } from 'src/user/user.service';
 tdl.configure({ tdjson: getTdjson() });
 
 @Injectable()
-export class AuthService {
+export class LoginService {
   constructor(private readonly userService: UserService) {}
 
   private authResolvers: Map<string, (code: string) => void> = new Map();
