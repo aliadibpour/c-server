@@ -8,24 +8,61 @@ tdl.configure({ tdjson: getTdjson() });
 
 @Injectable()
 export class TelegramService {
-  private getClientByPhone(phoneNumber: string) {
-    const sessionPath = path.join(__dirname, '..', '..', 'sessions', `+${phoneNumber}`);
+  private clients = new Map<string, { client: any; timeout: NodeJS.Timeout }>();
 
-    if (!fs.existsSync(sessionPath)) {
-      throw new Error(`No session found for phone number ${phoneNumber}`);
-    }
-
-    const client = tdl.createClient({
-      apiId: 19661737, // جایگزین با مقادیر واقعی
-      apiHash: '28b0dd4e86b027fd9a2905d6c343c6bb', // جایگزین با مقادیر واقعی
-      databaseDirectory: path.join(__dirname, '..', '..', 'sessions', phoneNumber),
-      filesDirectory: path.join(__dirname, '..', '..', 'sessions', phoneNumber, 'files'),
-      useTestDc: false,
-      //verbosityLevel: 1,
-    });
-
-    return client;
+private getClientByPhone(phoneNumber: string) {
+  const existing = this.clients.get(phoneNumber);
+  if (existing) {
+    // reset timer fo active clients
+    clearTimeout(existing.timeout);
+    existing.timeout = this.createAutoCloseTimer(phoneNumber, existing.client);
+    return existing.client;
   }
+
+  const sessionPath = path.join(__dirname, '..', '..', 'sessions', `+${phoneNumber}`);
+
+  if (!fs.existsSync(sessionPath)) {
+    throw new Error(`No session found for phone number ${phoneNumber}`);
+  }
+
+  const client = tdl.createClient({
+    apiId: 94575,
+    apiHash: 'a3406de8d171bb422bbec5e2e116196e',
+    databaseDirectory: path.join(__dirname, '..', '..', 'sessions', phoneNumber),
+    filesDirectory: path.join(__dirname, '..', '..', 'sessions', phoneNumber, 'files'),
+    useTestDc: false,
+    //verbosityLevel: 1,
+  });
+
+  const timeout = this.createAutoCloseTimer(phoneNumber, client);
+
+  client.on('close', () => {
+    console.log(`Client closed for ${phoneNumber}`);
+    this.removeClient(phoneNumber);
+  });
+
+  this.clients.set(phoneNumber, { client, timeout });
+
+  return client;
+}
+
+private createAutoCloseTimer(phoneNumber: string, client: any) {
+  return setTimeout(() => {
+    console.log(`Auto closing client for ${phoneNumber} due to inactivity`);
+    client.close();
+    // remove from cashe after close client
+    this.removeClient(phoneNumber);
+  }, 10 * 60 * 1000); // 10m
+}
+
+private removeClient(phoneNumber: string) {
+  const entry = this.clients.get(phoneNumber);
+  if (entry) {
+    clearTimeout(entry.timeout);
+    this.clients.delete(phoneNumber);
+  }
+}
+
 
   async sendMessage(phoneNumber: string, chatId: number, text: string) {
     const client = this.getClientByPhone(phoneNumber);
@@ -94,7 +131,7 @@ export class TelegramService {
       '@type': 'deleteMessages',
       chat_id: chatId,
       message_ids: [messageId],
-      revoke: true,
+      revoke: true, //means delete for everyone
     });
   }
 }
