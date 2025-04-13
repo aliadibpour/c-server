@@ -24,7 +24,7 @@ import { ConfigModule } from '@nestjs/config';
    ConfigModule.forRoot({ isGlobal: true }),
    //LiveMatchResultModule,
    LoginModule,
-   //TelegramModule,
+   TelegramModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -13,25 +13,23 @@ export class LoginService {
 
   private authResolvers: Map<string, (code: string) => void> = new Map();
   private clients: Map<string, any> = new Map();
-  private attemptCounts: Map<string, number> = new Map(); // Rate-limiting attempts
+  private attemptCounts: Map<string, number> = new Map();
 
-  private getSessionPath(phoneNumber: string) {
-    return path.resolve('sessions', phoneNumber);
+  private getSessionPath(phoneNumber: string, type: 'active' | 'pending') {
+    return path.resolve('sessions', type, phoneNumber);
   }
 
-  private sessionExists(phoneNumber: string): boolean {
-    return fs.existsSync(this.getSessionPath(phoneNumber));
+  private sessionExists(phoneNumber: string, type: 'active' | 'pending') {
+    return fs.existsSync(this.getSessionPath(phoneNumber, type));
   }
 
-  private async getClient(phoneNumber: string) {
+  private async getClient(phoneNumber: string, type: 'active' | 'pending') {
     if (this.clients.has(phoneNumber)) {
       return this.clients.get(phoneNumber);
     }
 
-    const sessionPath = this.getSessionPath(phoneNumber);
-    if (!this.sessionExists(phoneNumber)) {
-      fs.mkdirSync(sessionPath, { recursive: true });
-    }
+    const sessionPath = this.getSessionPath(phoneNumber, type);
+    fs.mkdirSync(sessionPath, { recursive: true });
 
     const client = tdl.createClient({
       apiId: 19661737,
@@ -45,93 +43,98 @@ export class LoginService {
   }
 
   async loginUser(phoneNumber: string) {
-    // Check if user is already logged in (session exists)
-    if (this.sessionExists(phoneNumber)) {
+    if (this.sessionExists(phoneNumber, 'active')) {
       return { message: 'User is already logged in.' };
     }
 
-    let attempts = this.attemptCounts.get(phoneNumber) || 0;
-    const MAX_ATTEMPTS = 5;
-
-    // Prevent too many login attempts
-    if (attempts >= MAX_ATTEMPTS) {
-      return { error: 'Too many login attempts. Please try again later.' };
+    if (this.sessionExists(phoneNumber, 'pending')) {
+      return { message: 'Verification code already sent. Please enter the code.' };
     }
 
+    const attempts = this.attemptCounts.get(phoneNumber) || 0;
+    if (attempts >= 5) {
+      return { error: 'Too many login attempts. Please try again later.' };
+    }
     this.attemptCounts.set(phoneNumber, attempts + 1);
 
-    const client = await this.getClient(phoneNumber);
-    client.login(() => ({
-      getPhoneNumber: () => {
-        console.log(`Sending phone number: ${phoneNumber}`);
-        return Promise.resolve(phoneNumber);
-      },
-      getAuthCode: () => {
-        return new Promise<string>((resolve) => {
-          console.log(`Waiting for verification code for ${phoneNumber}...`);
-          this.authResolvers.set(phoneNumber, resolve);
-        });
-      },
-    }))
-    .then(() => {
-      console.log(`Login completed for ${phoneNumber}`);
-    })
-    .catch((err) => {
-      console.error(`Login failed for ${phoneNumber}:`, err);
-      this.cleanupSession(phoneNumber);
-    });
+    const client = await this.getClient(phoneNumber, 'pending');
+    client
+      .login(() => ({
+        getPhoneNumber: () => Promise.resolve(phoneNumber),
+        getAuthCode: () =>
+          new Promise<string>((resolve) => {
+            this.authResolvers.set(phoneNumber, resolve);
+          }),
+      }))
+      .then(() => {
+        console.log(`✅ Login completed for ${phoneNumber}`);
+        this.moveSessionToActive(phoneNumber);
+        this.authResolvers.delete(phoneNumber);
+        this.attemptCounts.delete(phoneNumber);
+      })
+      .catch((err) => {
+        console.error(`❌ Login failed for ${phoneNumber}`, err);
+        this.cleanupSession(phoneNumber);
+      });
 
     return { message: 'Verification code sent. Please enter the code.' };
   }
 
   async verifyCode(phoneNumber: string, code: string) {
-    // Check if a login attempt is pending
     if (!this.authResolvers.has(phoneNumber)) {
       return { error: 500, message: 'No pending login request or invalid code.' };
     }
 
-    console.log(`🔑 Verifying code for ${phoneNumber}: ${code}`);
+    console.log(`🔐 Verifying code for ${phoneNumber}: ${code}`);
 
     return new Promise((resolve, reject) => {
-      // Resolve the verification code
       this.authResolvers.get(phoneNumber)!(code);
 
-      // Delay added to simulate login completion
       setTimeout(() => {
         const client = this.clients.get(phoneNumber);
-
-        // Check if the client is authorized after the delay
-        if (!client.authorized) {
-          console.error(`Invalid verification code for ${phoneNumber}, deleting session.`);
+        if (!client?.authorized) {
           this.cleanupSession(phoneNumber);
-          return reject({ error: 401, message: 'Invalid verification code. Please try again.' });
+          return reject({ error: 401, message: 'Invalid verification code.' });
         }
 
-        console.log(`Login completed for ${phoneNumber}`);
         this.authResolvers.delete(phoneNumber);
-
-        // Reset attempts on successful login
         this.attemptCounts.delete(phoneNumber);
 
-        // Register user and return success response
-        resolve({ message: 'Login successful!', user: this.userService.registerUser(phoneNumber) });
-      }, 3000); // Delay for checking login completion
+        resolve({
+          message: 'Login successful!',
+          user: this.userService.registerUser(phoneNumber),
+        });
+      }, 3000);
     });
   }
 
-  //to allow delete session if user not send code and close the verifiction window in client
   cancelSession(phoneNumber: string) {
-    console.warn(`Client canceled login for ${phoneNumber}. Deleting session.`);
     this.cleanupSession(phoneNumber);
-    return { message: 'Session canceled successfully.' };
+    return { message: 'Login session canceled.' };
   }
 
   private cleanupSession(phoneNumber: string) {
-    const sessionPath = this.getSessionPath(phoneNumber);
-    if (fs.existsSync(sessionPath)) {
-      fs.rmSync(sessionPath, { recursive: true, force: true });
-      console.log(`Removed incomplete session for ${phoneNumber}`);
+    const pendingPath = this.getSessionPath(phoneNumber, 'pending');
+    if (fs.existsSync(pendingPath)) {
+      fs.rmSync(pendingPath, { recursive: true, force: true });
+      console.log(`🗑️ Removed pending session for ${phoneNumber}`);
     }
+
     this.clients.delete(phoneNumber);
+    this.authResolvers.delete(phoneNumber);
+  }
+
+  private moveSessionToActive(phoneNumber: string) {
+    const pendingPath = this.getSessionPath(phoneNumber, 'pending');
+    const activePath = this.getSessionPath(phoneNumber, 'active');
+
+    if (!fs.existsSync(pendingPath)) return;
+
+    if (fs.existsSync(activePath)) {
+      fs.rmSync(activePath, { recursive: true, force: true });
+    }
+
+    fs.renameSync(pendingPath, activePath);
+    console.log(`📂 Moved session from pending to active for ${phoneNumber}`);
   }
 }
