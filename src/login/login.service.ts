@@ -4,12 +4,18 @@ import * as tdl from 'tdl';
 import * as path from 'path';
 import * as fs from 'fs';
 import { UserService } from 'src/user/user.service';
+import { ConfigService } from '@nestjs/config';
 
 tdl.configure({ tdjson: getTdjson() });
 
 @Injectable()
 export class LoginService {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private configService: ConfigService
+  ) {}
+  private API_ID = this.configService.get<number>("API_ID");
+  private API_HASH = this.configService.get<string>("API_HASH")
 
   private authResolvers: Map<string, (code: string) => void> = new Map();
   private clients: Map<string, any> = new Map();
@@ -32,8 +38,8 @@ export class LoginService {
     fs.mkdirSync(sessionPath, { recursive: true });
 
     const client = tdl.createClient({
-      apiId: 19661737,
-      apiHash: '28b0dd4e86b027fd9a2905d6c343c6bb',
+      apiId: this.API_ID,
+      apiHash: this.API_HASH,
       databaseDirectory: sessionPath,
       filesDirectory: sessionPath,
     });
