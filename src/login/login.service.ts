@@ -76,7 +76,6 @@ export class LoginService {
       }))
       .then(() => {
         console.log(`✅ Login completed for ${phoneNumber}`);
-        //this.moveSessionToActive(phoneNumber);
         this.authResolvers.delete(phoneNumber);
         this.attemptCounts.delete(phoneNumber);
       })
@@ -89,8 +88,7 @@ export class LoginService {
   }
 
   async verifyCode(phoneNumber: string, code: string) {
-    // 1. ارسال کد به TDLib
-    this.authResolvers.get(phoneNumber)!(code);
+    this.authResolvers.get(phoneNumber)?.(code);
   
     const client = this.clients.get(phoneNumber);
     if (!client) return { error: 500, message: 'Client not found.' };
@@ -107,17 +105,22 @@ export class LoginService {
   
           if (state?._ === 'authorizationStateReady') {
             clearInterval(interval);
-  
-            // 🔐 فقط اینجا سشن رو منتقل کن
-            // try {
-            //   //this.moveSessionToActive(phoneNumber); // ⬅️ اینجا اگر فولدر نبود خطا می‌گیره
-            // } catch (err) {
-            //   console.error(`❌ Move session failed: ${err.message}`);
-            //   return reject({ error: 500, message: 'Failed to move session', details: err.message });
-            // }
-  
+
+            try {
+              await client.close(); // ✅ بستن کلاینت
+              this.clients.delete(phoneNumber);
+
+              this.moveSessionToActive(phoneNumber); // ✅ انتقال امن سشن
+            } catch (err) {
+              console.error(`❌ Move session failed: ${err.message}`);
+              return reject({
+                error: 500,
+                message: 'Failed to move session',
+                details: err.message,
+              });
+            }
+
             await this.userService.registerUser(phoneNumber);
-  
             return resolve({ message: 'Login successful!' });
           }
   
@@ -144,7 +147,7 @@ export class LoginService {
       }, 700);
     });
   }
-  
+
   cancelSession(phoneNumber: string) {
     this.cleanupSession(phoneNumber);
     return { message: 'Login session canceled.' };
@@ -160,35 +163,40 @@ export class LoginService {
     this.clients.delete(phoneNumber);
     this.authResolvers.delete(phoneNumber);
   }
-  
-  private moveSessionToActive(phoneNumber: string) {
+
+  private async moveSessionToActive(phoneNumber: string) {
     const pendingPath = this.getSessionPath(phoneNumber, 'pending');
     const activePath = this.getSessionPath(phoneNumber, 'active');
     const activeDir = path.dirname(activePath);
   
-    try {
-      // ❗ اگر پوشه‌ی pending وجود نداشت، عملیات انجام نشه
-      if (!fs.existsSync(pendingPath)) {
-        console.warn(`⚠️ Pending session not found for ${phoneNumber}`);
-        return;
-      }
-  
-      // ✅ اطمینان از اینکه پوشه‌ی active وجود داره
-      if (!fs.existsSync(activeDir)) {
-        fs.mkdirSync(activeDir, { recursive: true });
-      }
-  
-      // 🧹 اگر قبلاً سشن فعال وجود داشته باشه، حذفش کن
-      if (fs.existsSync(activePath)) {
-        fs.rmSync(activePath, { recursive: true, force: true });
-      }
-  
-      fs.renameSync(pendingPath, activePath);
-      console.log(`✅ Moved session from pending to active for ${phoneNumber}`);
-    } catch (error) {
-      console.error(`❌ Failed to move session for ${phoneNumber}: ${error.message}`);
-      throw new Error(`Failed to move session: ${error.message}`);
+    if (!fs.existsSync(pendingPath)) {
+      console.warn(`⚠️ Pending session not found for ${phoneNumber}`);
+      return;
     }
+  
+    // اگر active وجود نداشت، بساز
+    if (!fs.existsSync(activeDir)) {
+      fs.mkdirSync(activeDir, { recursive: true });
+    }
+  
+    // کلاینت رو ببند (اگه وجود داره)
+    const client = this.clients.get(phoneNumber);
+    if (client) {
+      await client.close(); // صبر می‌کنیم تا بسته بشه
+      this.clients.delete(phoneNumber);
+    }
+  
+    // صبر برای اینکه tdlib فایل‌ها رو کامل بنویسه
+    await new Promise((res) => setTimeout(res, 1000));
+  
+    // اگه فولدر active از قبل بود، حذفش کن
+    if (fs.existsSync(activePath)) {
+      fs.rmSync(activePath, { recursive: true, force: true });
+    }
+  
+    // حالا فولدر رو منتقل کن
+    fs.renameSync(pendingPath, activePath);
+    console.log(`✅ Moved session from pending to active for ${phoneNumber}`);
   }
-
+  
 }
