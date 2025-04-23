@@ -14,8 +14,9 @@ export class LoginService {
     private readonly userService: UserService,
     private configService: ConfigService
   ) {}
-  private API_ID = this.configService.get<number>("API_ID");
-  private API_HASH = this.configService.get<string>("API_HASH")
+
+  private API_ID = this.configService.get<number>('API_ID');
+  private API_HASH = this.configService.get<string>('API_HASH');
 
   private authResolvers: Map<string, (code: string) => void> = new Map();
   private clients: Map<string, any> = new Map();
@@ -64,6 +65,7 @@ export class LoginService {
     this.attemptCounts.set(phoneNumber, attempts + 1);
 
     const client = await this.getClient(phoneNumber, 'pending');
+
     client
       .login(() => ({
         getPhoneNumber: () => Promise.resolve(phoneNumber),
@@ -74,7 +76,7 @@ export class LoginService {
       }))
       .then(() => {
         console.log(`✅ Login completed for ${phoneNumber}`);
-        this.moveSessionToActive(phoneNumber);
+        //this.moveSessionToActive(phoneNumber);
         this.authResolvers.delete(phoneNumber);
         this.attemptCounts.delete(phoneNumber);
       })
@@ -87,33 +89,62 @@ export class LoginService {
   }
 
   async verifyCode(phoneNumber: string, code: string) {
-    if (!this.authResolvers.has(phoneNumber)) {
-      return { error: 500, message: 'No pending login request or invalid code.' };
-    }
-
-    console.log(`🔐 Verifying code for ${phoneNumber}: ${code}`);
-
+    // 1. ارسال کد به TDLib
+    this.authResolvers.get(phoneNumber)!(code);
+  
+    const client = this.clients.get(phoneNumber);
+    if (!client) return { error: 500, message: 'Client not found.' };
+  
     return new Promise((resolve, reject) => {
-      this.authResolvers.get(phoneNumber)!(code);
-
-      setTimeout(() => {
-        const client = this.clients.get(phoneNumber);
-        if (!client?.authorized) {
-          this.cleanupSession(phoneNumber);
-          return reject({ error: 401, message: 'Invalid verification code.' });
+      let tries = 0;
+      const maxTries = 15;
+  
+      const interval = setInterval(async () => {
+        tries++;
+  
+        try {
+          const state = await client.invoke({ _: 'getAuthorizationState' });
+  
+          if (state?._ === 'authorizationStateReady') {
+            clearInterval(interval);
+  
+            // 🔐 فقط اینجا سشن رو منتقل کن
+            // try {
+            //   //this.moveSessionToActive(phoneNumber); // ⬅️ اینجا اگر فولدر نبود خطا می‌گیره
+            // } catch (err) {
+            //   console.error(`❌ Move session failed: ${err.message}`);
+            //   return reject({ error: 500, message: 'Failed to move session', details: err.message });
+            // }
+  
+            await this.userService.registerUser(phoneNumber);
+  
+            return resolve({ message: 'Login successful!' });
+          }
+  
+          if (
+            ['authorizationStateWaitPhoneNumber', 'authorizationStateWaitCode'].includes(state?._) &&
+            tries >= maxTries
+          ) {
+            clearInterval(interval);
+            return reject({ error: 401, message: 'Invalid verification code or timeout.' });
+          }
+  
+          if (tries >= maxTries) {
+            clearInterval(interval);
+            return reject({ error: 401, message: 'Login timeout. Please try again.' });
+          }
+        } catch (err) {
+          clearInterval(interval);
+          return reject({
+            error: 500,
+            message: 'TDLib error while checking authorization state.',
+            details: err.message,
+          });
         }
-
-        this.authResolvers.delete(phoneNumber);
-        this.attemptCounts.delete(phoneNumber);
-
-        resolve({
-          message: 'Login successful!',
-          user: this.userService.registerUser(phoneNumber),
-        });
-      }, 3000);
+      }, 700);
     });
   }
-
+  
   cancelSession(phoneNumber: string) {
     this.cleanupSession(phoneNumber);
     return { message: 'Login session canceled.' };
@@ -129,18 +160,35 @@ export class LoginService {
     this.clients.delete(phoneNumber);
     this.authResolvers.delete(phoneNumber);
   }
-
+  
   private moveSessionToActive(phoneNumber: string) {
     const pendingPath = this.getSessionPath(phoneNumber, 'pending');
     const activePath = this.getSessionPath(phoneNumber, 'active');
-
-    if (!fs.existsSync(pendingPath)) return;
-
-    if (fs.existsSync(activePath)) {
-      fs.rmSync(activePath, { recursive: true, force: true });
+    const activeDir = path.dirname(activePath);
+  
+    try {
+      // ❗ اگر پوشه‌ی pending وجود نداشت، عملیات انجام نشه
+      if (!fs.existsSync(pendingPath)) {
+        console.warn(`⚠️ Pending session not found for ${phoneNumber}`);
+        return;
+      }
+  
+      // ✅ اطمینان از اینکه پوشه‌ی active وجود داره
+      if (!fs.existsSync(activeDir)) {
+        fs.mkdirSync(activeDir, { recursive: true });
+      }
+  
+      // 🧹 اگر قبلاً سشن فعال وجود داشته باشه، حذفش کن
+      if (fs.existsSync(activePath)) {
+        fs.rmSync(activePath, { recursive: true, force: true });
+      }
+  
+      fs.renameSync(pendingPath, activePath);
+      console.log(`✅ Moved session from pending to active for ${phoneNumber}`);
+    } catch (error) {
+      console.error(`❌ Failed to move session for ${phoneNumber}: ${error.message}`);
+      throw new Error(`Failed to move session: ${error.message}`);
     }
-
-    fs.renameSync(pendingPath, activePath);
-    console.log(`📂 Moved session from pending to active for ${phoneNumber}`);
   }
+
 }

@@ -3,14 +3,14 @@ import { LoginService } from './login.service';
 
 @Controller('auth')
 export class LoginController {
-  constructor(private readonly authService: LoginService) {}
+  constructor(private readonly loginService: LoginService) {}
 
   @Post('login')
   async login(@Body('phoneNumber') phoneNumber: string) {
     if (!phoneNumber) {
       throw new BadRequestException('Phone number is required.');
     }
-    return this.authService.loginUser(phoneNumber);
+    return this.loginService.loginUser(phoneNumber);
   }
 
   @Post('verify')
@@ -22,7 +22,7 @@ export class LoginController {
     }
 
     try {
-      return await this.authService.verifyCode(phoneNumber, code);
+      return await this.loginService.verifyCode(phoneNumber, code);
     } catch (error) {
       console.error(`Verification failed for ${phoneNumber}:`, error);
       throw new BadRequestException(error.message || 'Verification failed.');
@@ -35,6 +35,6 @@ export class LoginController {
       throw new BadRequestException('Phone number is required.');
     }
 
-    return this.authService.cancelSession(phoneNumber);
+    return this.loginService.cancelSession(phoneNumber);
   }
 }
