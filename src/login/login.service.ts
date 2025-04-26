@@ -48,7 +48,6 @@ export class LoginService {
   }
 
   async loginUser(phone: string) {
-    // ❌ Don't block login if session exists
     if (this.sessionExists(phone, 'pending')) {
       return { message: 'Verification already sent. Awaiting code.' };
     }
@@ -61,72 +60,98 @@ export class LoginService {
   
     const client = await this.getClient(phone, 'pending');
   
+    let codeType: string | null = null;
+  
+    const getCodeType = new Promise<string>((resolve) => {
+      client.on('update', (update) => {
+        if (
+          update._ === 'updateAuthorizationState' &&
+          update.authorization_state._ === 'authorizationStateWaitCode'
+        ) {
+          const codeInfo = update.authorization_state.code_info;
+          if (codeInfo && codeInfo.type && codeInfo.type._) {
+            const method = codeInfo.type._; // مثل authenticationCodeTypeSms
+            console.log('🔐 نوع ارسال کد:', method);
+            codeType = method;
+            resolve(method);
+          }
+        }
+      });
+    });
+  
     client
       .login(() => ({
         getPhoneNumber: () => Promise.resolve(phone),
-        getAuthCode: () => new Promise(resolve => {
-          this.authResolvers.set(phone, resolve);
-        }),
+        getAuthCode: () =>
+          new Promise((resolve) => {
+            this.authResolvers.set(phone, resolve);
+          }),
       }))
       .then(() => {
         this.authResolvers.delete(phone);
         this.attemptCounts.delete(phone);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error('Login error:', err.message);
         this.cleanupSession(phone);
       });
   
-    return { message: 'Verification code sent.' };
+    // منتظر بمان تا نوع کد مشخص شود یا Timeout بزنیم
+    const timeoutPromise = new Promise<string>((resolve) => {
+      setTimeout(() => resolve('unknown'), 5000);
+    });
+  
+    const method = await Promise.race([getCodeType, timeoutPromise]);
+  
+    return {
+      message: 'Verification code sent.',
+      method: method.replace('authenticationCodeType', '').toLowerCase(), // برای خوانایی بهتر
+    };
   }
   
 
   async verifyCode(phone: string, code: string) {
     const client = this.clients.get(phone);
     if (!client) return { error: 404, message: 'Client not found' };
-
+  
     this.authResolvers.get(phone)?.(code);
-
+  
     return new Promise((resolve, reject) => {
-      let tries = 0;
-      const maxTries = 20;
-
-      const check = setInterval(async () => {
-        tries++;
-
-        try {
-          const state = await client.invoke({ _: 'getAuthorizationState' });
-
-          if (state._ === 'authorizationStateReady') {
-            clearInterval(check);
-            await client.close();
-            this.clients.delete(phone);
-            this.authResolvers.delete(phone);
-            await this.moveSessionToActive(phone);
-            await this.userService.registerUser(phone);
-            return resolve({ message: 'Login successful.' });
-          }
-
-          if (
-            ['authorizationStateWaitCode', 'authorizationStateWaitPhoneNumber'].includes(state._) &&
-            tries >= maxTries
-          ) {
-            clearInterval(check);
-            return reject({ error: 401, message: 'Code incorrect or expired.' });
-          }
-
-          if (tries >= maxTries) {
-            clearInterval(check);
-            return reject({ error: 408, message: 'Login timeout.' });
-          }
-        } catch (err) {
-          clearInterval(check);
-          return reject({ error: 500, message: 'Internal TDLib error.', detail: err.message });
+      const timeout = setTimeout(() => {
+        client.off('update', onUpdate); // remove listener
+        reject({ error: 408, message: 'Login timeout.' });
+      }, 10000); // 10 ثانیه
+  
+      const onUpdate = async (update) => {
+        if (
+          update._ === 'updateAuthorizationState' &&
+          update.authorization_state._ === 'authorizationStateReady'
+        ) {
+          clearTimeout(timeout);
+          client.off('update', onUpdate); // حذف لیسنر
+          await client.close();
+          this.clients.delete(phone);
+          this.authResolvers.delete(phone);
+          await this.moveSessionToActive(phone);
+          await this.userService.registerUser(phone);
+          resolve({ message: 'Login successful.' });
         }
-      }, 800);
+  
+        if (
+          update._ === 'updateAuthorizationState' &&
+          update.authorization_state._ === 'authorizationStateWaitCode'
+        ) {
+          // اگر باز هم منتظر کد شد، یعنی کد اشتباه بوده
+          clearTimeout(timeout);
+          client.off('update', onUpdate);
+          reject({ error: 401, message: 'Code incorrect or expired.' });
+        }
+      };
+  
+      client.on('update', onUpdate);
     });
   }
-
+  
   async cancelSession(phone: string) {
     this.cleanupSession(phone);
     return { message: 'Session canceled by user.' };
